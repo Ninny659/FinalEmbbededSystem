@@ -1,0 +1,123 @@
+
+// This #include statement was automatically added by the Particle IDE.
+#include <Adafruit_DHT.h>
+
+#define DHTTYPE  DHT11
+#define DHTPIN   D5
+
+#define PIR_PIN D6 
+
+
+
+DHT dht(DHTPIN, DHTTYPE);
+
+double roomTemp;
+double roomHumidity;
+
+int led1 = D7;
+
+double currentLightLevel; // light level of room
+int TimeofDay(String On);
+
+bool TurnOn; //Turns light on at a certain time
+
+int MotionCount;
+
+bool sensorReadings; // if the sensors give no reading // made redundant
+
+
+void setup() {
+  
+    Serial.begin(9600); 
+    Particle.variable("Temperature", &roomTemp, DOUBLE); // Variables for temperature
+    Particle.variable("Humidity", &roomHumidity, DOUBLE);
+
+    Particle.function("Switch", TimeofDay);
+  
+    pinMode(A0, INPUT);
+    pinMode(PIR_PIN, INPUT); 
+    
+    pinMode(led1, OUTPUT); // LED output
+    
+  
+    dht.begin();
+}
+
+
+
+void loop() {
+    
+    double lightAnalogVal = analogRead(A0);
+    
+
+    roomTemp = dht.getTempCelcius(); // getting temp and humidity reading
+    roomHumidity = dht.getHumidity();
+    
+    currentLightLevel = map(lightAnalogVal, 0.0, 4095.0, 0.0, 100.0); //getting light reading
+    
+    Particle.publish("light-meter/level", String(currentLightLevel), PRIVATE);
+    
+    //Temp and Light Controls for Lights
+    if( roomHumidity >= 80)
+    {
+        Particle.publish("Humidity-Sensors-LightOn");    
+        sensorReadings = true;
+        digitalWrite(led1, HIGH);
+    }
+    else if(roomTemp <= 10) // room temp below 10, becuase the sun won't be out and it'll be dark
+    {
+       Particle.publish("Temp-Sensors-LightOn");  
+       sensorReadings = true;
+       digitalWrite(led1, HIGH);
+    }
+    else if(currentLightLevel <= 30) // light level below 30
+    {
+        Particle.publish("Light-Sensors-LightOn"); 
+        sensorReadings = true;
+        digitalWrite(led1, HIGH);
+    }
+    else 
+    {
+        sensorReadings = false;
+        Particle.publish("Sensors-LightOff");   
+        digitalWrite(led1, LOW);
+    }
+    
+    
+
+    if (digitalRead(PIR_PIN) == HIGH && sensorReadings == true) // detecting motion, doesn't turn on light as if the user is at the desk they will be able to turn on the light themselves
+    { 
+        //Keep Lights On  
+        Particle.publish("Motion-Detected-Nothing"); 
+        //digitalWrite(D2, HIGH);
+        MotionCount = 0;
+        
+    } 
+   else 
+    {
+        MotionCount += 1;  // detecting cycles of inactivity  
+    }
+    
+    if(MotionCount >= 10)
+    {
+        Particle.publish("Motion-LightOff"); // Turns Lights off after 10 mins
+        digitalWrite(led1, LOW);
+    }
+   
+    
+    delay(1000000); //Real wait value // 16 mins
+    //delay(1000); // testing Value
+    
+
+}
+
+int TimeofDay(String data)
+{
+  
+    Serial.println("TimeofDay-LightOn");   // turns lights on after 6pm IFTTT
+    digitalWrite(led1, HIGH);
+    return 1;
+}
+
+
+
