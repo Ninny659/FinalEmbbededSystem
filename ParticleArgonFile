@@ -59,7 +59,7 @@ void loop() {
         Particle.publish("MasterSwitch-LightOn");  
         
         digitalWrite(led1, HIGH);
-        delay(1000); // testing Value
+        delay(1000); // wait value
     }
     else
     {
@@ -95,8 +95,8 @@ void loop() {
         }
    
     
-        //delay(1000000); //Real wait value // 16 mins
-        delay(20000); // testing Value    
+        delay(1000000); //Real wait value // 16 mins
+        //delay(20000); // testing Value    
         
     }
 
@@ -112,7 +112,7 @@ void runSensors()
         sensorReadings = true;
         digitalWrite(led1, LOW);
     }
-    else if(roomTemp <= 16) // room temp below 10, becuase the sun won't be out and it'll be dark
+    else if(roomTemp <= 16) // room temp below 16, becuase the sun won't be out and it'll be dark
     {   
         Particle.publish("Temp-Sensors-LightOn");  
         sensorReadings = true;
