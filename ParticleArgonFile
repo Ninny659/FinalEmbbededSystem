@@ -15,6 +15,7 @@ double roomTemp;
 double roomHumidity;
 
 int led1 = D7;
+int Master = D0;
 
 double currentLightLevel; // light level of room
 int TimeofDay(String On);
@@ -35,7 +36,9 @@ void setup() {
     Particle.function("Switch", TimeofDay);
   
     pinMode(A0, INPUT);
-    pinMode(PIR_PIN, INPUT); 
+    pinMode(PIR_PIN, INPUT);
+    
+    pinMode(Master, INPUT);
     
     pinMode(led1, OUTPUT); // LED output
     
@@ -49,28 +52,73 @@ void loop() {
     
     double lightAnalogVal = analogRead(A0);
     
+    Serial.println(digitalRead(Master));
+    
+    if(Master == HIGH)
+    {
+        Particle.publish("MasterSwitch-LightOn");  
+        
+        digitalWrite(led1, HIGH);
+        delay(1000); // testing Value
+    }
+    else
+    {
+        roomTemp = dht.getTempCelcius(); // getting temp and humidity reading
+        roomHumidity = dht.getHumidity();
+    
+        currentLightLevel = map(lightAnalogVal, 0.0, 4095.0, 0.0, 100.0); //getting light reading
+    
+        Particle.publish("light-meter/level", String(currentLightLevel), PRIVATE);
+    
 
-    roomTemp = dht.getTempCelcius(); // getting temp and humidity reading
-    roomHumidity = dht.getHumidity();
+        if (digitalRead(PIR_PIN) == HIGH && sensorReadings == true) // detecting motion, doesn't turn on light as if the user is at the desk they will be able to turn on the light themselves
+        { 
+            //Keep Lights On  
+            Particle.publish("Motion-Detected-DONothing"); 
+            //digitalWrite(D2, HIGH);
+            MotionCount = 0;
+        
+        } 
+        else 
+        {
+            MotionCount += 1;  // detecting cycles of inactivity  
+        }
     
-    currentLightLevel = map(lightAnalogVal, 0.0, 4095.0, 0.0, 100.0); //getting light reading
+        if(MotionCount >= 10)
+        {
+            Particle.publish("Motion-LightOff"); // Turns Lights off after 16 mins x 10 CYCLES for inactivity
+            digitalWrite(led1, LOW);
+        }
+        else
+        {
+            runSensors();
+        }
+   
     
-    Particle.publish("light-meter/level", String(currentLightLevel), PRIVATE);
-    
-    //Temp and Light Controls for Lights
-    if( roomHumidity >= 80)
+        //delay(1000000); //Real wait value // 16 mins
+        delay(20000); // testing Value    
+        
+    }
+
+
+}
+
+void runSensors()
+{
+        //Temp and Light Controls for Lights
+    if(roomHumidity >= 60)
     {
         Particle.publish("Humidity-Sensors-LightOn");    
         sensorReadings = true;
+        digitalWrite(led1, LOW);
+    }
+    else if(roomTemp <= 16) // room temp below 10, becuase the sun won't be out and it'll be dark
+    {   
+        Particle.publish("Temp-Sensors-LightOn");  
+        sensorReadings = true;
         digitalWrite(led1, HIGH);
     }
-    else if(roomTemp <= 10) // room temp below 10, becuase the sun won't be out and it'll be dark
-    {
-       Particle.publish("Temp-Sensors-LightOn");  
-       sensorReadings = true;
-       digitalWrite(led1, HIGH);
-    }
-    else if(currentLightLevel <= 30) // light level below 30
+    else if(currentLightLevel <= 40) // light level below 30
     {
         Particle.publish("Light-Sensors-LightOn"); 
         sensorReadings = true;
@@ -81,34 +129,8 @@ void loop() {
         sensorReadings = false;
         Particle.publish("Sensors-LightOff");   
         digitalWrite(led1, LOW);
-    }
+    }    
     
-    
-
-    if (digitalRead(PIR_PIN) == HIGH && sensorReadings == true) // detecting motion, doesn't turn on light as if the user is at the desk they will be able to turn on the light themselves
-    { 
-        //Keep Lights On  
-        Particle.publish("Motion-Detected-Nothing"); 
-        //digitalWrite(D2, HIGH);
-        MotionCount = 0;
-        
-    } 
-   else 
-    {
-        MotionCount += 1;  // detecting cycles of inactivity  
-    }
-    
-    if(MotionCount >= 10)
-    {
-        Particle.publish("Motion-LightOff"); // Turns Lights off after 10 mins
-        digitalWrite(led1, LOW);
-    }
-   
-    
-    delay(1000000); //Real wait value // 16 mins
-    //delay(1000); // testing Value
-    
-
 }
 
 int TimeofDay(String data)
@@ -118,6 +140,9 @@ int TimeofDay(String data)
     digitalWrite(led1, HIGH);
     return 1;
 }
+
+
+
 
 
 
